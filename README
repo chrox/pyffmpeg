@@ -2,8 +2,8 @@ This is an unofficial fork of https://github.com/mhaller/pyffmpeg patched to com
 
 Tested with:
 
-- python27 @2.7.2_3 (macports)
-- Cython==0.15.1 (PyPi)
-- numpy==1.6.1 (PyPi, optional)
-- llvm-gcc-4.2 (Xcode 4.1 LLVM build 2335.15.00 on OSX Lion 10.7.3)
+- Python 2.7.3
+- Cython 0.16
+- Numpy 1.6.2
+- GCC version 4.7.2
 
