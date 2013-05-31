@@ -1943,9 +1943,9 @@ except:
 
 
 # original definiton as define in libavutil/avutil.h
-cdef AVRational AV_TIME_BASE_Q
-AV_TIME_BASE_Q.num = 1
-AV_TIME_BASE_Q.den = AV_TIME_BASE
+#cdef AVRational AV_TIME_BASE_Q
+#AV_TIME_BASE_Q.num = 1
+#AV_TIME_BASE_Q.den = AV_TIME_BASE
 
 AVFMT_NOFILE = 1
 
@@ -3219,6 +3219,9 @@ cdef class FFMpegReader(AFFMpegReader):
     cdef object default_video_track
     cdef int with_readahead
     cdef unsigned long long int seek_before_security_interval
+    
+    cdef int check_start
+    cdef int check_end
 
     def __cinit__(self,with_readahead=True,seek_before=4000):
         self.filename = None
@@ -3238,7 +3241,8 @@ cdef class FFMpegReader(AFFMpegReader):
         self.default_video_track=None
         self.with_readahead=with_readahead
         self.seek_before_security_interval=seek_before
-
+        self.check_start=0
+        self.check_end=0
 
     def __dealloc__(self):
         self.tracks=[]
@@ -3277,7 +3281,10 @@ cdef class FFMpegReader(AFFMpegReader):
 #            self.__finalize_open_write()
 
 
-    def open(self,char *filename,track_selector=None,mode="r",buf_size=1024):
+    def open(self,char *filename,track_selector=None,
+             mode="r",buf_size=1024,
+             check_start=False,
+             check_end=False):
         cdef int ret
         cdef int score
         cdef AVInputFormat * fmt
@@ -3289,6 +3296,8 @@ cdef class FFMpegReader(AFFMpegReader):
 
         self.filename = filename
         self.FormatCtx = avformat_alloc_context()
+        self.check_start = check_start
+        self.check_end = check_end
 
         if (mode=="w"):
             raise Exception,"Not yet supported sorry"
@@ -3447,12 +3456,14 @@ cdef class FFMpegReader(AFFMpegReader):
         if (self.default_audio_track!=None and self.default_video_track!=None):
             self.default_audio_track.reset_tps(self.default_video_track.get_fps())
         for t in self.tracks:
-            t.check_start() ### this is done only if asked
+            if self.check_start:
+                t.check_start() ### this is done only if asked
             savereadahead=self.with_readahead
             savebsi=self.seek_before_security_interval
             self.seek_before_security_interval=0
             self.with_readahead=0
-            t.check_end()
+            if self.check_end:
+                t.check_end()
             self.with_readahead=savereadahead
             self.seek_before_security_interval=savebsi
         try:
@@ -3460,7 +3471,7 @@ cdef class FFMpegReader(AFFMpegReader):
                 sys.stderr.write("WARNING : inconsistent file duration %x\n"%(self.tracks[0].duration() ,))
                 new_duration=-self.tracks[0].duration()
                 self.tracks[0]._set_duration(new_duration)
-        except KeyError:
+        except:
             pass
 
 
@@ -3641,7 +3652,11 @@ cdef class FFMpegReader(AFFMpegReader):
 
     def get_tracks(self):
         return self.tracks
-
+    
+    def seek_to_seconds(self, pos):
+        for t in self.tracks:
+            t.reset_buffers()
+            t.seek_to_seconds(pos)        
 
     def seek_to(self, pts):
         """
